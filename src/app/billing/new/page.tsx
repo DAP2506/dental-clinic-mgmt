@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { supabase, formatCurrency, formatDate } from '@/lib/supabase';
@@ -34,6 +34,25 @@ interface CaseData {
 }
 
 export default function NewInvoicePage() {
+  return (
+    <Suspense fallback={
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">Create New Invoice</h1>
+          </div>
+          <div className="bg-white shadow rounded-lg animate-pulse">
+            <div className="h-64 bg-gray-200 rounded-lg"></div>
+          </div>
+        </div>
+      </DashboardLayout>
+    }>
+      <NewInvoiceContent />
+    </Suspense>
+  );
+}
+
+function NewInvoiceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const caseId = searchParams.get('caseId');

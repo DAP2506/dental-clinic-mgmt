@@ -283,7 +283,10 @@ export default function PatientViewModal({ isOpen, onClose, patient }: PatientVi
                     <div>
                       <label className="text-sm font-medium text-gray-500">Date of Birth</label>
                       <p className="text-gray-900">
-                        {new Date(patient.date_of_birth).toLocaleDateString('en-IN')}
+                        {patient.date_of_birth 
+                          ? new Date(patient.date_of_birth).toLocaleDateString('en-IN')
+                          : 'Not provided'
+                        }
                       </p>
                     </div>
                   </div>
