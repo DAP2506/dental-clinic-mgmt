@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { supabase, formatDate, formatCurrency } from '@/lib/supabase';
 import { calculateAge, getInitials, getAvatarColor } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   ArrowLeft,
   User,
@@ -28,7 +29,8 @@ import {
   DollarSign,
   Pill,
   Calendar as CalendarIcon,
-  UserCheck
+  UserCheck,
+  Trash2
 } from 'lucide-react';
 
 interface Patient {
@@ -120,7 +122,14 @@ interface CaseDetails {
   created_at: string;
   updated_at: string;
   patients: Patient;
-  doctors: Doctor;
+  authorized_users?: {
+    id: string;
+    email: string;
+    full_name: string | null;
+    specialization: string | null;
+    phone: string | null;
+    license_number: string | null;
+  };
   case_treatments: CaseTreatment[];
 }
 
@@ -144,10 +153,12 @@ interface CaseTreatment {
 export default function CaseDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const { role } = useAuth();
   const caseId = params.id as string;
 
   const [caseDetails, setCaseDetails] = useState<CaseDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<CaseDetails>>({});
@@ -170,13 +181,14 @@ export default function CaseDetailsPage() {
         .select(`
           *,
           patients(*),
-          doctors(*),
+          authorized_users!cases_doctor_user_id_fkey(id, email, full_name, specialization, phone, license_number),
           case_treatments(
             *,
             treatments(*)
           )
         `)
         .eq('id', caseId)
+        .is('deleted_at', null)
         .single();
 
       if (error) throw error;
@@ -198,6 +210,49 @@ export default function CaseDetailsPage() {
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditForm(caseDetails || {});
+  };
+
+  const handleDeleteCase = async () => {
+    if (role !== 'admin') {
+      alert('Only administrators can delete cases.');
+      return;
+    }
+
+    if (!caseDetails) return;
+
+    const patientName = `${caseDetails.patients.first_name} ${caseDetails.patients.last_name}`;
+    const confirmMessage = `Are you sure you want to delete this case?\n\nPatient: ${patientName}\nDiagnosis: ${caseDetails.final_diagnosis || 'N/A'}\n\nThis will:\n- Mark the case as deleted\n- Hide it from case listings\n- Preserve all data for records\n\nNote: The case data will NOT be permanently removed and can be restored by an administrator if needed.`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+
+      // Get current user email for audit trail
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email || 'unknown';
+
+      // Soft delete: Set deleted_at timestamp instead of actually deleting
+      const { error } = await supabase
+        .from('cases')
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: userEmail
+        })
+        .eq('id', caseId);
+
+      if (error) throw error;
+
+      alert('Case deleted successfully.');
+      router.push(`/patients/${caseDetails.patient_id}`);
+    } catch (error) {
+      console.error('Error deleting case:', error);
+      alert('Failed to delete case. Please try again or contact support.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleSave = async () => {
@@ -303,7 +358,7 @@ export default function CaseDetailsPage() {
     );
   }
 
-  if (!caseDetails || !caseDetails.patients || !caseDetails.doctors || !caseDetails.case_treatments) {
+  if (!caseDetails || !caseDetails.patients || !caseDetails.case_treatments) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
@@ -311,7 +366,7 @@ export default function CaseDetailsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Case Details - Not Found</h1>
           </div>
           <div className="bg-white shadow rounded-lg p-6">
-            <p className="text-gray-500">The case you're looking for could not be found or is missing required data.</p>
+            <p className="text-gray-500">The case you're looking for could not be found or has been deleted.</p>
           </div>
         </div>
       </DashboardLayout>
@@ -385,6 +440,16 @@ export default function CaseDetailsPage() {
                   <FileText className="h-4 w-4 mr-2" />
                   View Invoices
                 </button>
+                {role === 'admin' && (
+                  <button
+                    onClick={handleDeleteCase}
+                    disabled={deleting}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {deleting ? 'Deleting...' : 'Delete Case'}
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -532,10 +597,10 @@ export default function CaseDetailsPage() {
               <UserCheck className="h-8 w-8 text-purple-500" />
               <div className="ml-4">
                 <p className="text-lg font-semibold text-gray-900">
-                  Dr. {caseDetails.doctors?.name || 'N/A'}
+                  Dr. {caseDetails.authorized_users?.full_name || caseDetails.authorized_users?.email || 'N/A'}
                 </p>
                 <p className="text-sm text-gray-500">
-                  {caseDetails.doctors?.specialization || 'N/A'}
+                  {caseDetails.authorized_users?.specialization || 'N/A'}
                 </p>
               </div>
             </div>

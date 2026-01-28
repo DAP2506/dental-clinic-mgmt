@@ -24,7 +24,6 @@ import { useAuth } from '@/contexts/AuthContext';
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'doctor', 'helper'] },
   { name: 'Patients', href: '/patients', icon: Users, roles: ['admin', 'doctor', 'helper'] },
-  { name: 'Appointments', href: '/appointments', icon: Calendar, roles: ['admin', 'doctor', 'helper'] },
   { name: 'Cases', href: '/cases', icon: FileText, roles: ['admin', 'doctor'] },
   { name: 'Treatments', href: '/treatments', icon: FileText, roles: ['admin', 'doctor'] },
   { name: 'Billing', href: '/billing', icon: CreditCard, roles: ['admin', 'helper'] },

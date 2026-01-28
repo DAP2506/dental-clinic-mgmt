@@ -29,11 +29,16 @@ export interface Patient {
 
 export interface Doctor {
   id: string
-  name: string
-  specialization: string
-  phone: string
   email: string
-  license_number: string
+  full_name: string | null
+  role: string
+  specialization: string | null
+  phone: string | null
+  license_number: string | null
+  bio: string | null
+  available_days: string | null
+  available_hours: string | null
+  is_active: boolean
   created_at: string
 }
 
@@ -50,7 +55,8 @@ export interface Treatment {
 export interface Case {
   id: string
   patient_id: string
-  doctor_id: string
+  doctor_id: string // Legacy, still exists but deprecated
+  doctor_user_id?: string // New field - references authorized_users.id
   case_status: 'Consultation' | 'In Progress' | 'Completed' | 'Cancelled'
   priority: 'Low' | 'Medium' | 'High' | 'Emergency'
   chief_complaint: string

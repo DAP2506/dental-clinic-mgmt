@@ -92,9 +92,8 @@ interface PatientViewModalProps {
 }
 
 export default function PatientViewModal({ isOpen, onClose, patient }: PatientViewModalProps) {
-  const [activeTab, setActiveTab] = useState<'info' | 'cases' | 'appointments' | 'billing'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'cases' | 'billing'>('info');
   const [cases, setCases] = useState<Case[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -127,23 +126,12 @@ export default function PatientViewModal({ isOpen, onClose, patient }: PatientVi
         setCases(casesData || []);
       }
 
-      // Fetch appointments
-      const { data: appointmentsData, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('patient_id', patient.id)
-        .order('appointment_date', { ascending: false });
-
-      if (!appointmentsError) {
-        setAppointments(appointmentsData || []);
-      }
-
       // Fetch invoices
       const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
         .select('*')
         .eq('patient_id', patient.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false});
 
       if (!invoicesError) {
         setInvoices(invoicesData || []);
@@ -230,7 +218,6 @@ export default function PatientViewModal({ isOpen, onClose, patient }: PatientVi
           {[
             { id: 'info', label: 'Information', icon: User },
             { id: 'cases', label: 'Cases', icon: FileText },
-            { id: 'appointments', label: 'Appointments', icon: Calendar },
             { id: 'billing', label: 'Billing', icon: CreditCard }
           ].map((tab) => (
             <button
@@ -425,49 +412,6 @@ export default function PatientViewModal({ isOpen, onClose, patient }: PatientVi
             </div>
           )}
 
-          {activeTab === 'appointments' && (
-            <div>
-              <h3 className="text-lg font-medium text-gray-900  mb-4 flex items-center">
-                <Calendar className="h-5 w-5 mr-2" />
-                Appointments
-              </h3>
-              {loading ? (
-                <div className="text-center py-8">
-                  <Clock className="h-8 w-8 text-gray-400 mx-auto mb-2 animate-spin" />
-                  <p className="text-gray-500">Loading appointments...</p>
-                </div>
-              ) : appointments.length > 0 ? (
-                <div className="space-y-3">
-                  {appointments.map((appointment) => (
-                    <div key={appointment.id} className="flex items-center justify-between p-3 bg-gray-50  rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {new Date(appointment.appointment_date).toLocaleDateString('en-IN')}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {appointment.appointment_time}
-                        </p>
-                        {appointment.purpose && (
-                          <p className="text-sm text-gray-600">
-                            {appointment.purpose}
-                          </p>
-                        )}
-                      </div>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
-                        {getStatusIcon(appointment.status)}
-                        <span className="ml-1">{appointment.status}</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No appointments found</p>
-                </div>
-              )}
-            </div>
-          )}
           {activeTab === 'billing' && (
             <div>
               <h3 className="text-lg font-medium text-gray-900  mb-4 flex items-center">

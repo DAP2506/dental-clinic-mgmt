@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { supabase, formatCurrency, formatDate } from '@/lib/supabase';
 import { getInitials, getAvatarColor } from '@/lib/utils';
+import { generateInvoicePDF, printInvoice } from '@/lib/pdfGenerator';
 import {
   ArrowLeft,
   User,
@@ -21,7 +22,8 @@ import {
   Mail,
   Edit,
   Download,
-  Send
+  Send,
+  Printer
 } from 'lucide-react';
 
 interface InvoiceDetails {
@@ -206,6 +208,26 @@ export default function InvoiceDetailPage() {
     setShowPaymentModal(true);
   };
 
+  const handleDownloadPDF = async () => {
+    if (!invoice) return;
+    try {
+      await generateInvoicePDF(invoice);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!invoice) return;
+    try {
+      await printInvoice(invoice);
+    } catch (error) {
+      console.error('Error printing invoice:', error);
+      alert('Failed to print invoice. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -254,11 +276,17 @@ export default function InvoiceDetailPage() {
             </h1>
           </div>
           <div className="flex items-center space-x-3">
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
+            <button 
+              onClick={handlePrint}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Print
             </button>
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <button 
+              onClick={handleDownloadPDF}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
               <Download className="h-4 w-4 mr-2" />
               Download PDF
             </button>

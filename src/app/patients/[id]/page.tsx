@@ -6,6 +6,7 @@ import Link from 'next/link';
 import DashboardLayout from '../../../components/layout/DashboardLayout';
 import { supabase, formatDate, type Patient } from '../../../lib/supabase';
 import { getInitials, getAvatarColor, calculateAge, generateCaseId } from '../../../lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   ArrowLeft,
   Edit,
@@ -22,7 +23,8 @@ import {
   CheckCircle,
   XCircle,
   Plus,
-  Eye
+  Eye,
+  Trash2
 } from 'lucide-react';
 
 interface CaseWithRelations {
@@ -79,6 +81,7 @@ interface Invoice {
 export default function PatientDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { role } = useAuth();
   const patientId = params.id as string;
 
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -86,10 +89,10 @@ export default function PatientDetailPage() {
   const [allCases, setAllCases] = useState<CaseWithRelations[]>([]);
   const [casesCurrentPage, setCasesCurrentPage] = useState(1);
   const [totalCases, setTotalCases] = useState(0);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (patientId) {
@@ -102,16 +105,17 @@ export default function PatientDetailPage() {
     setError(null);
 
     try {
-      // Fetch patient details
+      // Fetch patient details (check if deleted)
       const { data: patientData, error: patientError } = await supabase
         .from('patients')
         .select('*')
         .eq('id', patientId)
+        .is('deleted_at', null)
         .single();
 
       if (patientError) {
         if (patientError.code === 'PGRST116') {
-          setError('Patient not found');
+          setError('Patient not found or has been deleted');
           return;
         }
         throw patientError;
@@ -119,7 +123,7 @@ export default function PatientDetailPage() {
 
       setPatient(patientData);
 
-      // Fetch cases (with treatment and doctor information)
+      // Fetch cases (with treatment and doctor information, exclude deleted)
       const { data: casesData, error: casesError } = await supabase
         .from('cases')
         .select(`
@@ -130,6 +134,7 @@ export default function PatientDetailPage() {
           )
         `)
         .eq('patient_id', patientId)
+        .is('deleted_at', null)
         .order('updated_at', { ascending: false });
 
       if (casesError && casesError.code !== 'PGRST116') {
@@ -148,25 +153,12 @@ export default function PatientDetailPage() {
         setCases(paginatedCases);
       }
 
-      // Fetch appointments
-      const { data: appointmentsData, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('appointment_date', { ascending: false });
-      if (appointmentsError && appointmentsError.code !== 'PGRST116') {
-        console.warn('Appointments table might not exist:', appointmentsError);
-        setAppointments([]);
-      } else {
-        setAppointments(appointmentsData || []);
-      }
-
       // Fetch invoices
-      const { data: invoicesData, error: invoicesError } = await supabase
+      const { data: invoicesData, error: invoicesError} = await supabase
         .from('invoices')
         .select('*')
         .eq('patient_id', patientId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false});
       if (invoicesError && invoicesError.code !== 'PGRST116') {
         console.warn('Invoices table might not exist:', invoicesError);
         setInvoices([]);
@@ -188,6 +180,48 @@ export default function PatientDetailPage() {
     const paginatedCases = allCases.slice(startIndex, endIndex);
     setCases(paginatedCases);
     setCasesCurrentPage(page);
+  };
+
+  const handleDeletePatient = async () => {
+    if (role !== 'admin') {
+      alert('Only administrators can delete patients.');
+      return;
+    }
+
+    if (!patient) return;
+
+    const confirmMessage = `Are you sure you want to delete patient ${patient.first_name} ${patient.last_name}?\n\nThis will:\n- Mark the patient as deleted\n- Hide them from the patient list\n- Preserve all data for records\n\nNote: The patient data will NOT be permanently removed and can be restored by an administrator if needed.`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+
+      // Get current user email for audit trail
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email || 'unknown';
+
+      // Soft delete: Set deleted_at timestamp instead of actually deleting
+      const { error } = await supabase
+        .from('patients')
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: userEmail
+        })
+        .eq('id', patientId);
+
+      if (error) throw error;
+
+      alert(`Patient ${patient.first_name} ${patient.last_name} has been deleted successfully.`);
+      router.push('/patients');
+    } catch (error) {
+      console.error('Error deleting patient:', error);
+      alert('Failed to delete patient. Please try again or contact support.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const getCaseStatusColor = (status: string) => {
@@ -316,7 +350,6 @@ export default function PatientDetailPage() {
   const age = patient.date_of_birth ? calculateAge(patient.date_of_birth) : 0;
   const caseId = generateCaseId(patient.id);
   const activeCases = allCases.filter(c => c.case_status === 'In Progress' || c.case_status === 'Consultation');
-  const recentAppointments = appointments.slice(0, 5);
   const unpaidInvoices = invoices.filter(i => i.status === 'Pending' || i.status === 'Overdue');
   
   const casesPerPage = 5;
@@ -344,6 +377,16 @@ export default function PatientDetailPage() {
               <Edit className="h-4 w-4 mr-2" />
               Edit Patient
             </Link>
+            {role === 'admin' && (
+              <button
+                onClick={handleDeletePatient}
+                disabled={deleting}
+                className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? 'Deleting...' : 'Delete Patient'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -369,18 +412,12 @@ export default function PatientDetailPage() {
                 </p>
               </div>
               <div className="text-right">
-                <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="grid grid-cols-2 gap-4 text-center">
                   <div className="bg-blue-50  p-3 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">
                       {totalCases}
                     </div>
                     <div className="text-xs text-gray-500">Total Cases</div>
-                  </div>
-                  <div className="bg-green-50  p-3 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">
-                      {appointments.length}
-                    </div>
-                    <div className="text-xs text-gray-500">Visits</div>
                   </div>
                   <div className="bg-yellow-50  p-3 rounded-lg">
                     <div className="text-2xl font-bold text-yellow-600">
@@ -696,49 +733,8 @@ export default function PatientDetailPage() {
           </div>
         </div>
 
-        {/* Recent Appointments and Invoices */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Appointments */}
-          <div className="bg-white  shadow rounded-lg border border-gray-200">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-medium text-gray-900  flex items-center">
-                  <Calendar className="h-5 w-5 mr-2" />
-                  Recent Appointments
-                </h2>
-                <Link
-                  href="/appointments"
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  View All
-                </Link>
-              </div>
-              {recentAppointments.length > 0 ? (
-                <div className="space-y-3">
-                  {recentAppointments.map((appointment) => (
-                    <div key={appointment.id} className="flex items-center justify-between p-3 bg-gray-50  rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {new Date(appointment.appointment_date).toLocaleDateString('en-IN')}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {appointment.appointment_time}
-                        </p>
-                      </div>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
-                        {getStatusIcon(appointment.status)}
-                        <span className="ml-1 capitalize">{appointment.status}</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500  text-center py-4">
-                  No appointments scheduled
-                </p>
-              )}
-            </div>
-          </div>
+        {/* Pending Invoices */}
+        <div className="grid grid-cols-1 gap-6">
           {/* Pending Invoices */}
           <div className="bg-white  shadow rounded-lg border border-gray-200">
             <div className="p-6">

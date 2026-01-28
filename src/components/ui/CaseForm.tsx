@@ -12,8 +12,10 @@ interface Patient {
 
 interface Doctor {
   id: string;
-  name: string;
-  specialization: string;
+  email: string;
+  full_name: string | null;
+  specialization: string | null;
+  role: string;
 }
 
 interface Treatment {
@@ -177,11 +179,13 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, isEditing 
         .from('patients')
         .select('id, first_name, last_name')
         .order('first_name');
-      // Fetch doctors
+      // Fetch doctors from authorized_users
       const { data: doctorsData } = await supabase
-        .from('doctors')
-        .select('id, name, specialization')
-        .order('name');
+        .from('authorized_users')
+        .select('id, email, full_name, specialization, role')
+        .eq('role', 'doctor')
+        .eq('is_active', true)
+        .order('full_name');
       // Fetch treatments
       const { data: treatmentsData } = await supabase
         .from('treatments')
@@ -312,7 +316,7 @@ export default function CaseForm({ isOpen, onClose, onSave, caseData, isEditing 
                     <option value="">Select Doctor</option>
                     {doctors.map(doctor => (
                       <option key={doctor.id} value={doctor.id}>
-                        {doctor.name} - {doctor.specialization}
+                        {doctor.full_name || doctor.email} {doctor.specialization ? `- ${doctor.specialization}` : ''}
                       </option>
                     ))}
                   </select>

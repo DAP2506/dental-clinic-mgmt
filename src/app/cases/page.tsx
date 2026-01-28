@@ -13,6 +13,7 @@ interface CaseWithRelations {
   id: string
   patient_id: string
   doctor_id: string
+  doctor_user_id?: string
   case_status: string
   priority: string
   chief_complaint: string
@@ -27,7 +28,12 @@ interface CaseWithRelations {
   created_at: string
   updated_at: string
   patients?: Patient
-  doctors?: Doctor
+  authorized_users?: {
+    id: string
+    full_name: string | null
+    email: string
+    specialization: string | null
+  }
   case_treatments?: Array<{
     treatments: Treatment
   }>
@@ -79,26 +85,30 @@ export default function CasesPage() {
 
   const fetchStats = async () => {
     try {
-      // Get total count
+      // Get total count (excluding deleted)
       const { count: totalCount } = await supabase
         .from('cases')
         .select('*', { count: 'exact', head: true })
+        .is('deleted_at', null)
 
-      // Get status counts
+      // Get status counts (excluding deleted)
       const { count: inProgressCount } = await supabase
         .from('cases')
         .select('*', { count: 'exact', head: true })
         .eq('case_status', 'In Progress')
+        .is('deleted_at', null)
 
       const { count: completedCount } = await supabase
         .from('cases')
         .select('*', { count: 'exact', head: true })
         .eq('case_status', 'Completed')
+        .is('deleted_at', null)
 
       const { count: emergencyCount } = await supabase
         .from('cases')
         .select('*', { count: 'exact', head: true })
         .eq('priority', 'Emergency')
+        .is('deleted_at', null)
 
       setStats({
         total: totalCount || 0,
@@ -119,28 +129,30 @@ export default function CasesPage() {
       let patientIds: string[] = []
       if (debouncedSearchTerm) {
         const searchLower = debouncedSearchTerm.toLowerCase()
-        // Check if the search term might be a patient name
+        // Check if the search term might be a patient name (exclude deleted patients)
         const { data: patientsData } = await supabase
           .from('patients')
           .select('id')
           .or(`first_name.ilike.%${debouncedSearchTerm}%,last_name.ilike.%${debouncedSearchTerm}%`)
+          .is('deleted_at', null)
         
         if (patientsData && patientsData.length > 0) {
           patientIds = patientsData.map(p => p.id)
         }
       }
 
-      // Build the base query with count for total
+      // Build the base query with count for total (exclude deleted cases)
       let baseQuery = supabase
         .from('cases')
         .select(`
           *,
           patients(first_name, last_name, patient_phone),
-          doctors(name, specialization),
+          authorized_users!cases_doctor_user_id_fkey(id, full_name, email, specialization),
           case_treatments(
             treatments(name, price)
           )
         `, { count: 'exact' })
+        .is('deleted_at', null)
 
       if (statusFilter !== 'all') {
         baseQuery = baseQuery.eq('case_status', statusFilter)
@@ -455,10 +467,10 @@ export default function CasesPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {case_.doctors?.name}
+                          {case_.authorized_users?.full_name || case_.authorized_users?.email || 'N/A'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {case_.doctors?.specialization}
+                          {case_.authorized_users?.specialization || ''}
                         </div>
                       </td>
 
