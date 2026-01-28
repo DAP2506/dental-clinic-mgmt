@@ -53,29 +53,33 @@ export default function PatientsPage() {
 
   const fetchStats = async () => {
     try {
-      // Get total count
+      // Get total count (excluding deleted)
       const { count: totalCount } = await supabase
         .from('patients')
         .select('*', { count: 'exact', head: true })
+        .is('deleted_at', null)
 
-      // Get gender counts
+      // Get gender counts (excluding deleted)
       const { count: maleCount } = await supabase
         .from('patients')
         .select('*', { count: 'exact', head: true })
         .eq('gender', 'Male')
+        .is('deleted_at', null)
 
       const { count: femaleCount } = await supabase
         .from('patients')
         .select('*', { count: 'exact', head: true })
         .eq('gender', 'Female')
+        .is('deleted_at', null)
 
-      // Get new this month count
+      // Get new this month count (excluding deleted)
       const currentDate = new Date()
       const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString()
       const { count: newThisMonthCount } = await supabase
         .from('patients')
         .select('*', { count: 'exact', head: true })
         .gte('created_at', firstDayOfMonth)
+        .is('deleted_at', null)
 
       setStats({
         total: totalCount || 0,
@@ -92,10 +96,11 @@ export default function PatientsPage() {
     try {
       setLoading(true)
 
-      // Build the base query with count for total
+      // Build the base query with count for total (exclude deleted patients)
       let baseQuery = supabase
         .from('patients')
         .select('*', { count: 'exact' })
+        .is('deleted_at', null)
 
       if (genderFilter !== 'all') {
         baseQuery = baseQuery.eq('gender', genderFilter)
