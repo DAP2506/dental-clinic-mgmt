@@ -122,7 +122,14 @@ interface CaseDetails {
   created_at: string;
   updated_at: string;
   patients: Patient;
-  doctors: Doctor;
+  authorized_users?: {
+    id: string;
+    email: string;
+    full_name: string | null;
+    specialization: string | null;
+    phone: string | null;
+    license_number: string | null;
+  };
   case_treatments: CaseTreatment[];
 }
 
@@ -174,13 +181,14 @@ export default function CaseDetailsPage() {
         .select(`
           *,
           patients(*),
-          doctors(*),
+          authorized_users!cases_doctor_user_id_fkey(id, email, full_name, specialization, phone, license_number),
           case_treatments(
             *,
             treatments(*)
           )
         `)
         .eq('id', caseId)
+        .is('deleted_at', null)
         .single();
 
       if (error) throw error;
@@ -350,7 +358,7 @@ export default function CaseDetailsPage() {
     );
   }
 
-  if (!caseDetails || !caseDetails.patients || !caseDetails.doctors || !caseDetails.case_treatments) {
+  if (!caseDetails || !caseDetails.patients || !caseDetails.case_treatments) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
@@ -358,7 +366,7 @@ export default function CaseDetailsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Case Details - Not Found</h1>
           </div>
           <div className="bg-white shadow rounded-lg p-6">
-            <p className="text-gray-500">The case you're looking for could not be found or is missing required data.</p>
+            <p className="text-gray-500">The case you're looking for could not be found or has been deleted.</p>
           </div>
         </div>
       </DashboardLayout>
@@ -589,10 +597,10 @@ export default function CaseDetailsPage() {
               <UserCheck className="h-8 w-8 text-purple-500" />
               <div className="ml-4">
                 <p className="text-lg font-semibold text-gray-900">
-                  Dr. {caseDetails.doctors?.name || 'N/A'}
+                  Dr. {caseDetails.authorized_users?.full_name || caseDetails.authorized_users?.email || 'N/A'}
                 </p>
                 <p className="text-sm text-gray-500">
-                  {caseDetails.doctors?.specialization || 'N/A'}
+                  {caseDetails.authorized_users?.specialization || 'N/A'}
                 </p>
               </div>
             </div>

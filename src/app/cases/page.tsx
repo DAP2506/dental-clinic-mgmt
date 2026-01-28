@@ -13,6 +13,7 @@ interface CaseWithRelations {
   id: string
   patient_id: string
   doctor_id: string
+  doctor_user_id?: string
   case_status: string
   priority: string
   chief_complaint: string
@@ -27,7 +28,12 @@ interface CaseWithRelations {
   created_at: string
   updated_at: string
   patients?: Patient
-  doctors?: Doctor
+  authorized_users?: {
+    id: string
+    full_name: string | null
+    email: string
+    specialization: string | null
+  }
   case_treatments?: Array<{
     treatments: Treatment
   }>
@@ -141,7 +147,7 @@ export default function CasesPage() {
         .select(`
           *,
           patients(first_name, last_name, patient_phone),
-          doctors(name, specialization),
+          authorized_users!cases_doctor_user_id_fkey(id, full_name, email, specialization),
           case_treatments(
             treatments(name, price)
           )
@@ -461,10 +467,10 @@ export default function CasesPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {case_.doctors?.name}
+                          {case_.authorized_users?.full_name || case_.authorized_users?.email || 'N/A'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {case_.doctors?.specialization}
+                          {case_.authorized_users?.specialization || ''}
                         </div>
                       </td>
 

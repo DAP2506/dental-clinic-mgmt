@@ -89,7 +89,6 @@ export default function PatientDetailPage() {
   const [allCases, setAllCases] = useState<CaseWithRelations[]>([]);
   const [casesCurrentPage, setCasesCurrentPage] = useState(1);
   const [totalCases, setTotalCases] = useState(0);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -154,25 +153,12 @@ export default function PatientDetailPage() {
         setCases(paginatedCases);
       }
 
-      // Fetch appointments
-      const { data: appointmentsData, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('appointment_date', { ascending: false });
-      if (appointmentsError && appointmentsError.code !== 'PGRST116') {
-        console.warn('Appointments table might not exist:', appointmentsError);
-        setAppointments([]);
-      } else {
-        setAppointments(appointmentsData || []);
-      }
-
       // Fetch invoices
-      const { data: invoicesData, error: invoicesError } = await supabase
+      const { data: invoicesData, error: invoicesError} = await supabase
         .from('invoices')
         .select('*')
         .eq('patient_id', patientId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false});
       if (invoicesError && invoicesError.code !== 'PGRST116') {
         console.warn('Invoices table might not exist:', invoicesError);
         setInvoices([]);

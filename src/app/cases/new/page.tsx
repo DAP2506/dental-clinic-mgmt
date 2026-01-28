@@ -49,8 +49,10 @@ interface Treatment {
 
 interface Doctor {
   id: string;
-  name: string;
-  specialization: string;
+  email: string;
+  full_name: string | null;
+  specialization: string | null;
+  role: string;
 }
 
 export default function NewCasePage() {
@@ -156,9 +158,11 @@ export default function NewCasePage() {
   const fetchDoctors = async () => {
     try {
       const { data, error } = await supabase
-        .from('doctors')
-        .select('*')
-        .order('name');
+        .from('authorized_users')
+        .select('id, email, full_name, specialization, role')
+        .eq('role', 'doctor')
+        .eq('is_active', true)
+        .order('full_name');
 
       if (error) throw error;
       setDoctors(data || []);
@@ -802,7 +806,7 @@ export default function NewCasePage() {
                     <option value="">Select a doctor</option>
                     {doctors.map((doctor) => (
                       <option key={doctor.id} value={doctor.id}>
-                        {doctor.name} - {doctor.specialization}
+                        {doctor.full_name || doctor.email} {doctor.specialization ? `- ${doctor.specialization}` : ''}
                       </option>
                     ))}
                   </select>
