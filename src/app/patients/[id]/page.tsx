@@ -350,7 +350,6 @@ export default function PatientDetailPage() {
   const age = patient.date_of_birth ? calculateAge(patient.date_of_birth) : 0;
   const caseId = generateCaseId(patient.id);
   const activeCases = allCases.filter(c => c.case_status === 'In Progress' || c.case_status === 'Consultation');
-  const recentAppointments = appointments.slice(0, 5);
   const unpaidInvoices = invoices.filter(i => i.status === 'Pending' || i.status === 'Overdue');
   
   const casesPerPage = 5;
@@ -413,18 +412,12 @@ export default function PatientDetailPage() {
                 </p>
               </div>
               <div className="text-right">
-                <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="grid grid-cols-2 gap-4 text-center">
                   <div className="bg-blue-50  p-3 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600">
                       {totalCases}
                     </div>
                     <div className="text-xs text-gray-500">Total Cases</div>
-                  </div>
-                  <div className="bg-green-50  p-3 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">
-                      {appointments.length}
-                    </div>
-                    <div className="text-xs text-gray-500">Visits</div>
                   </div>
                   <div className="bg-yellow-50  p-3 rounded-lg">
                     <div className="text-2xl font-bold text-yellow-600">
@@ -740,49 +733,8 @@ export default function PatientDetailPage() {
           </div>
         </div>
 
-        {/* Recent Appointments and Invoices */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Appointments */}
-          <div className="bg-white  shadow rounded-lg border border-gray-200">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-medium text-gray-900  flex items-center">
-                  <Calendar className="h-5 w-5 mr-2" />
-                  Recent Appointments
-                </h2>
-                <Link
-                  href="/appointments"
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  View All
-                </Link>
-              </div>
-              {recentAppointments.length > 0 ? (
-                <div className="space-y-3">
-                  {recentAppointments.map((appointment) => (
-                    <div key={appointment.id} className="flex items-center justify-between p-3 bg-gray-50  rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {new Date(appointment.appointment_date).toLocaleDateString('en-IN')}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {appointment.appointment_time}
-                        </p>
-                      </div>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
-                        {getStatusIcon(appointment.status)}
-                        <span className="ml-1 capitalize">{appointment.status}</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500  text-center py-4">
-                  No appointments scheduled
-                </p>
-              )}
-            </div>
-          </div>
+        {/* Pending Invoices */}
+        <div className="grid grid-cols-1 gap-6">
           {/* Pending Invoices */}
           <div className="bg-white  shadow rounded-lg border border-gray-200">
             <div className="p-6">
