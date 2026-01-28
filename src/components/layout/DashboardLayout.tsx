@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -13,18 +13,23 @@ import {
   Menu,
   X,
   Search,
-  Bell
+  Bell,
+  LogOut,
+  UserCog,
+  ChevronDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Patients', href: '/patients', icon: Users },
-  { name: 'Appointments', href: '/appointments', icon: Calendar },
-  { name: 'Cases', href: '/cases', icon: FileText },
-  { name: 'Treatments', href: '/treatments', icon: FileText },
-  { name: 'Billing', href: '/billing', icon: CreditCard },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'doctor', 'helper'] },
+  { name: 'Patients', href: '/patients', icon: Users, roles: ['admin', 'doctor', 'helper'] },
+  { name: 'Appointments', href: '/appointments', icon: Calendar, roles: ['admin', 'doctor', 'helper'] },
+  { name: 'Cases', href: '/cases', icon: FileText, roles: ['admin', 'doctor'] },
+  { name: 'Treatments', href: '/treatments', icon: FileText, roles: ['admin', 'doctor'] },
+  { name: 'Billing', href: '/billing', icon: CreditCard, roles: ['admin', 'helper'] },
+  { name: 'User Management', href: '/users', icon: UserCog, roles: ['admin'] },
+  { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'doctor', 'helper'] },
 ];
 
 interface DashboardLayoutProps {
@@ -33,7 +38,40 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, role, fullName, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/login');
+  };
+
+  // Filter navigation based on user role
+  const filteredNavigation = navigation.filter(item => 
+    item.roles.includes(role as any)
+  );
+
+  const getRoleDisplay = () => {
+    switch (role) {
+      case 'admin': return 'Administrator';
+      case 'doctor': return 'Doctor';
+      case 'helper': return 'Helper';
+      case 'patient': return 'Patient';
+      default: return 'User';
+    }
+  };
+
+  const getInitials = () => {
+    if (fullName) {
+      return fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return 'U';
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -62,7 +100,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </button>
         </div>
         <nav className="mt-8 px-4">
-          {navigation.map((item) => {
+          {filteredNavigation.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
@@ -90,7 +128,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <h1 className="text-xl font-bold text-gray-900">DentalCare</h1>
         </div>
         <nav className="mt-8 px-4">
-          {navigation.map((item) => {
+          {filteredNavigation.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
@@ -143,14 +181,54 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </button>
 
               {/* User menu */}
-              <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">Dr</span>
-                </div>
-                <div className="hidden sm:block">
-                  <p className="text-sm font-medium text-gray-900">Admin</p>
-                  <p className="text-xs text-gray-500">Clinic</p>
-                </div>
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center space-x-3 focus:outline-none hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors"
+                >
+                  <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">{getInitials()}</span>
+                  </div>
+                  <div className="hidden sm:block text-left">
+                    <p className="text-sm font-medium text-gray-900">{fullName || 'User'}</p>
+                    <p className="text-xs text-gray-500">{getRoleDisplay()}</p>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                </button>
+
+                {/* Dropdown menu */}
+                {userMenuOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setUserMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                      <div className="px-4 py-3 border-b border-gray-200">
+                        <p className="text-sm font-medium text-gray-900">{fullName || 'User'}</p>
+                        <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                        <p className="text-xs text-blue-600 mt-1">{getRoleDisplay()}</p>
+                      </div>
+                      {role === 'admin' && (
+                        <Link
+                          href="/users"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <UserCog className="mr-3 h-4 w-4" />
+                          User Management
+                        </Link>
+                      )}
+                      <button
+                        onClick={handleSignOut}
+                        className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        <LogOut className="mr-3 h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

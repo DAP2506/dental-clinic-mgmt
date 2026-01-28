@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { supabase, formatCurrency, formatDate, type Case, type Appointment, type Patient } from '@/lib/supabase';
 import { Calendar, Users, CreditCard, TrendingUp, Clock, AlertCircle } from 'lucide-react';
 
@@ -12,7 +13,7 @@ interface DashboardStats {
   pendingCases: number;
 }
 
-export default function Dashboard() {
+function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     totalPatients: 0,
     todayAppointments: 0,
@@ -248,5 +249,14 @@ export default function Dashboard() {
         </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+// Wrap with ProtectedRoute
+export default function ProtectedDashboard() {
+  return (
+    <ProtectedRoute allowedRoles={['admin', 'doctor', 'helper']}>
+      <Dashboard />
+    </ProtectedRoute>
   );
 }
